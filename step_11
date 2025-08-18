@@ -1,0 +1,107 @@
+# Cell 11: Hyperparameter Tuning
+def hyperparameter_tuning_experiment():
+    """
+    Experiment with different hyperparameters
+    """
+    print(f"\n{'='*60}")
+    print("HYPERPARAMETER TUNING EXPERIMENT")
+    print(f"{'='*60}")
+    
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    # Load MNIST for quick experiments
+    data_loader = DatasetLoader('mnist', batch_size=128)
+    
+    # Different configurations to test
+    configs = [
+        {'lr': 0.001, 'optimizer': 'adam', 'hidden_sizes': [512, 256, 128]},
+        {'lr': 0.01, 'optimizer': 'sgd', 'hidden_sizes': [512, 256, 128]},
+        {'lr': 0.001, 'optimizer': 'adam', 'hidden_sizes': [1024, 512, 256]},
+        {'lr': 0.001, 'optimizer': 'rmsprop', 'hidden_sizes': [256, 128, 64]}
+    ]
+    
+    results = []
+    
+    for i, config in enumerate(configs):
+        print(f"\nExperiment {i+1}/4:")
+        print(f"Learning Rate: {config['lr']}")
+        print(f"Optimizer: {config['optimizer']}")
+        print(f"Hidden Sizes: {config['hidden_sizes']}")
+        
+        # Create model
+        model = BasicDNN(28*28, config['hidden_sizes'], 10)
+        trainer = ModelTrainer(model, data_loader.train_loader, data_loader.test_loader, device)
+        
+        # Train for fewer epochs for quick comparison
+        history = trainer.train(
+            num_epochs=10,
+            learning_rate=config['lr'],
+            optimizer_type=config['optimizer'],
+            save_best=False
+        )
+        
+        # Evaluate
+        evaluator = ModelEvaluator(model, device)
+        eval_results = evaluator.evaluate_model(data_loader.test_loader)
+        
+        results.append({
+            'config': config,
+            'accuracy': eval_results['accuracy'],
+            'best_val_acc': max(history['val_accuracies'])
+        })
+    
+    # Display results
+    print(f"\n{'='*80}")
+    print("HYPERPARAMETER TUNING RESULTS")
+    print(f"{'='*80}")
+    
+    print(f"{'Exp':<5} {'LR':<8} {'Optimizer':<12} {'Hidden Sizes':<20} {'Test Acc (%)':<15} {'Best Val Acc (%)':<15}")
+    print("-" * 80)
+    
+    for i, result in enumerate(results):
+        config = result['config']
+        print(f"{i+1:<5} {config['lr']:<8} {config['optimizer']:<12} "
+              f"{str(config['hidden_sizes']):<20} {result['accuracy']:<15.2f} "
+              f"{result['best_val_acc']:<15.2f}")
+    
+    # Plot comparison
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+    
+    exp_names = [f"Exp {i+1}" for i in range(len(results))]
+    test_accs = [r['accuracy'] for r in results]
+    val_accs = [r['best_val_acc'] for r in results]
+    
+    x = np.arange(len(exp_names))
+    width = 0.35
+    
+    ax1.bar(x - width/2, test_accs, width, label='Test Accuracy', alpha=0.8)
+    ax1.bar(x + width/2, val_accs, width, label='Best Validation Accuracy', alpha=0.8)
+    ax1.set_xlabel('Experiments')
+    ax1.set_ylabel('Accuracy (%)')
+    ax1.set_title('Hyperparameter Tuning Results')
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(exp_names)
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+    
+    # Configuration details
+    config_details = []
+    for i, result in enumerate(results):
+        config = result['config']
+        detail = f"Exp {i+1}:\nLR: {config['lr']}\nOpt: {config['optimizer']}\nHidden: {config['hidden_sizes']}"
+        config_details.append(detail)
+    
+    ax2.axis('off')
+    ax2.text(0.1, 0.9, "Configuration Details:", fontsize=14, fontweight='bold', transform=ax2.transAxes)
+    
+    for i, detail in enumerate(config_details):
+        ax2.text(0.1, 0.75 - i*0.2, detail, fontsize=10, transform=ax2.transAxes, 
+                verticalalignment='top', bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgray", alpha=0.5))
+    
+    plt.tight_layout()
+    plt.show()
+    
+    return results
+
+# Run hyperparameter tuning
+tuning_results = hyperparameter_tuning_experiment()
