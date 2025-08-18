@@ -1,0 +1,20 @@
+# Cell 2: Install additional packages
+!pip install seaborn tqdm
+
+# Import all required libraries
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import torchvision
+import torchvision.transforms as transforms
+from torch.utils.data import DataLoader
+
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import classification_report, confusion_matrix
+from tqdm import tqdm
+import time
+
+print("All packages imported successfully!")
