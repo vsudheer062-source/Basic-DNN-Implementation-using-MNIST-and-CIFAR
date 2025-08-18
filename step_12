@@ -1,0 +1,162 @@
+# Cell 12: Model Interpretation
+def model_interpretation_analysis():
+    """
+    Analyze model behavior and interpret results
+    """
+    print(f"\n{'='*60}")
+    print("MODEL INTERPRETATION AND ANALYSIS")
+    print(f"{'='*60}")
+    
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    # Load MNIST for visualization
+    data_loader = DatasetLoader('mnist', batch_size=1)
+    
+    # Load the best model (assuming it's saved)
+    model = BasicDNN(28*28, [512, 256, 128], 10)
+    try:
+        model.load_state_dict(torch.load('best_model.pth'))
+        print("✓ Loaded saved best model")
+    except:
+        print("⚠ Could not load saved model, using current model")
+    
+    model.to(device)
+    model.eval()
+    
+    # 1. Analyze model predictions on sample images
+    print("\n1. Sample Predictions Analysis:")
+    
+    # Get some test samples
+    test_iter = iter(data_loader.test_loader)
+    
+    # Analyze 8 samples
+    fig, axes = plt.subplots(2, 4, figsize=(16, 8))
+    fig.suptitle('Model Predictions Analysis', fontsize=16)
+    
+    correct_predictions = 0
+    total_analyzed = 8
+    
+    for i in range(total_analyzed):
+        image, true_label = next(test_iter)
+        image, true_label = image.to(device), true_label.to(device)
+        
+        with torch.no_grad():
+            output = model(image)
+            probabilities = F.softmax(output, dim=1)
+            predicted_label = torch.argmax(output, dim=1)
+            confidence = torch.max(probabilities, dim=1)[0]
+        
+        # Check if prediction is correct
+        is_correct = predicted_label.item() == true_label.item()
+        if is_correct:
+            correct_predictions += 1
+        
+        # Plot
+        ax = axes[i // 4, i % 4]
+        ax.imshow(image.cpu().squeeze(), cmap='gray')
+        
+        title = f'True: {true_label.item()}, Pred: {predicted_label.item()}\n'
+        title += f'Confidence: {confidence.item():.2f}'
+        title_color = 'green' if is_correct else 'red'
+        ax.set_title(title, color=title_color, fontsize=10)
+        ax.axis('off')
+    
+    plt.tight_layout()
+    plt.show()
+    
+    print(f"Sample Accuracy: {correct_predictions}/{total_analyzed} = {100*correct_predictions/total_analyzed:.1f}%")
+    
+    # 2. Confidence Distribution Analysis
+    print("\n2. Confidence Distribution Analysis:")
+    
+    all_confidences = []
+    all_correct = []
+    
+    with torch.no_grad():
+        for i, (images, labels) in enumerate(data_loader.test_loader):
+            if i >= 1000:  # Analyze first 1000 samples for speed
+                break
+                
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            probabilities = F.softmax(outputs, dim=1)
+            predictions = torch.argmax(outputs, dim=1)
+            confidences = torch.max(probabilities, dim=1)[0]
+            
+            all_confidences.extend(confidences.cpu().numpy())
+            all_correct.extend((predictions == labels).cpu().numpy())
+    
+    # Plot confidence distribution
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+    
+    # Overall confidence distribution
+    ax1.hist(all_confidences, bins=50, alpha=0.7, edgecolor='black')
+    ax1.set_xlabel('Confidence Score')
+    ax1.set_ylabel('Frequency')
+    ax1.set_title('Model Confidence Distribution')
+    ax1.axvline(np.mean(all_confidences), color='red', linestyle='--', 
+                label=f'Mean: {np.mean(all_confidences):.3f}')
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+    
+    # Confidence by correctness
+    correct_confidences = [conf for conf, correct in zip(all_confidences, all_correct) if correct]
+    incorrect_confidences = [conf for conf, correct in zip(all_confidences, all_correct) if not correct]
+    
+    ax2.hist(correct_confidences, bins=30, alpha=0.7, label='Correct Predictions', color='green')
+    ax2.hist(incorrect_confidences, bins=30, alpha=0.7, label='Incorrect Predictions', color='red')
+    ax2.set_xlabel('Confidence Score')
+    ax2.set_ylabel('Frequency')
+    ax2.set_title('Confidence Distribution by Correctness')
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.show()
+    
+    print(f"Average confidence for correct predictions: {np.mean(correct_confidences):.3f}")
+    print(f"Average confidence for incorrect predictions: {np.mean(incorrect_confidences):.3f}")
+    
+    # 3. Class-wise performance analysis
+    print("\n3. Class-wise Performance Analysis:")
+    
+    # Get class-wise accuracy
+    evaluator = ModelEvaluator(model, device)
+    eval_results = evaluator.evaluate_model(data_loader.test_loader)
+    
+    class_accuracies = []
+    for i in range(10):
+        class_key = str(i)
+        if class_key in eval_results['classification_report']:
+            recall = eval_results['classification_report'][class_key]['recall']
+            class_accuracies.append(recall * 100)
+        else:
+            class_accuracies.append(0)
+    
+    # Plot class-wise performance
+    plt.figure(figsize=(12, 6))
+    bars = plt.bar(range(10), class_accuracies, color='skyblue', edgecolor='black')
+    plt.xlabel('Digit Class')
+    plt.ylabel('Accuracy (%)')
+    plt.title('Class-wise Accuracy')
+    plt.xticks(range(10))
+    plt.grid(True, alpha=0.3)
+    
+    # Add value labels on bars
+    for i, bar in enumerate(bars):
+        height = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width()/2., height + 0.5,
+                f'{height:.1f}%', ha='center', va='bottom', fontweight='bold')
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # Find best and worst performing classes
+    best_class = np.argmax(class_accuracies)
+    worst_class = np.argmin(class_accuracies)
+    
+    print(f"Best performing digit: {best_class} ({class_accuracies[best_class]:.1f}% accuracy)")
+    print(f"Worst performing digit: {worst_class} ({class_accuracies[worst_class]:.1f}% accuracy)")
+
+# Run model interpretation
+model_interpretation_analysis()
