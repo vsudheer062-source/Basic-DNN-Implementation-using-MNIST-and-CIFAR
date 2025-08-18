@@ -1,0 +1,112 @@
+# Cell 8: MNIST Example
+def run_mnist_experiment():
+    """
+    Run complete MNIST experiment
+    """
+    
+    # Set device
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
+    
+    # Configuration
+    batch_size = 128
+    num_epochs = 15
+    learning_rate = 0.001
+    
+    print(f"\n{'='*60}")
+    print(f"DEEP NEURAL NETWORK PROJECT - MNIST DATASET")
+    print(f"{'='*60}")
+    
+    # Load dataset
+    print("\n1. Loading MNIST Dataset...")
+    data_loader = DatasetLoader('mnist', batch_size=batch_size)
+    dataset_info = data_loader.get_dataset_info()
+    
+    print(f"Dataset: {dataset_info['name']}")
+    print(f"Input shape: {dataset_info['input_shape']}")
+    print(f"Number of classes: {dataset_info['num_classes']}")
+    print(f"Training samples: {len(data_loader.train_dataset)}")
+    print(f"Test samples: {len(data_loader.test_dataset)}")
+    
+    # Visualize samples
+    print("\n2. Visualizing Sample Data...")
+    data_loader.visualize_samples(16)
+    
+    # Create model
+    print("\n3. Creating Basic DNN Model for MNIST...")
+    input_size = 28 * 28  # Flattened MNIST image
+    hidden_sizes = [512, 256, 128]
+    model = BasicDNN(input_size, hidden_sizes, dataset_info['num_classes'])
+    
+    # Display model information
+    model_info = model.get_model_info()
+    print(f"Model Type: {model_info['model_type']}")
+    print(f"Total Parameters: {model_info['total_parameters']:,}")
+    print(f"Trainable Parameters: {model_info['trainable_parameters']:,}")
+    
+    # Initialize trainer
+    print("\n4. Initializing Trainer...")
+    trainer = ModelTrainer(model, data_loader.train_loader, data_loader.test_loader, device)
+    
+    # Train model
+    print("\n5. Training Model...")
+    training_history = trainer.train(
+        num_epochs=num_epochs,
+        learning_rate=learning_rate,
+        optimizer_type='adam',
+        scheduler_type='step',
+        save_best=True
+    )
+    
+    # Plot training history
+    print("\n6. Plotting Training History...")
+    evaluator = ModelEvaluator(model, device)
+    evaluator.plot_training_history(
+        training_history['train_losses'],
+        training_history['train_accuracies'],
+        training_history['val_losses'],
+        training_history['val_accuracies']
+    )
+    
+    # Final evaluation
+    print("\n7. Final Model Evaluation...")
+    evaluation_results = evaluator.evaluate_model(
+        data_loader.test_loader, 
+        class_names=[str(i) for i in range(10)]
+    )
+    
+    print(f"Final Test Accuracy: {evaluation_results['accuracy']:.2f}%")
+    print(f"Final Test Loss: {evaluation_results['loss']:.4f}")
+    
+    # Display detailed classification report
+    print("\nDetailed Classification Report:")
+    clf_report = evaluation_results['classification_report']
+    
+    print(f"{'Class':<15} {'Precision':<10} {'Recall':<10} {'F1-Score':<10} {'Support':<10}")
+    print("-" * 60)
+    
+    for i in range(10):
+        class_key = str(i)
+        if class_key in clf_report:
+            metrics = clf_report[class_key]
+            print(f"{i:<15} {metrics['precision']:<10.3f} {metrics['recall']:<10.3f} "
+                  f"{metrics['f1-score']:<10.3f} {metrics['support']:<10}")
+    
+    print("-" * 60)
+    print(f"{'Overall':<15} {clf_report['macro avg']['precision']:<10.3f} "
+          f"{clf_report['macro avg']['recall']:<10.3f} "
+          f"{clf_report['macro avg']['f1-score']:<10.3f} {clf_report['macro avg']['support']:<10}")
+    
+    # Plot confusion matrix
+    print("\n8. Plotting Confusion Matrix...")
+    evaluator.plot_confusion_matrix(
+        evaluation_results['targets'],
+        evaluation_results['predictions'],
+        [str(i) for i in range(10)],
+        title='Basic DNN - MNIST Confusion Matrix'
+    )
+    
+    return model, training_history, evaluation_results
+
+# Run MNIST experiment
+mnist_model, mnist_history, mnist_results = run_mnist_experiment()
