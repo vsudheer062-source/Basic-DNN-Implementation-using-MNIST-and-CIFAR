@@ -1,0 +1,72 @@
+# Cell 4: Basic DNN Model
+class BasicDNN(nn.Module):
+    """
+    Basic Deep Neural Network for classification tasks
+    """
+    
+    def __init__(self, input_size, hidden_sizes, num_classes, dropout_rate=0.5):
+        """
+        Initialize the Basic DNN
+        
+        Args:
+            input_size (int): Size of input features (flattened)
+            hidden_sizes (list): List of hidden layer sizes
+            num_classes (int): Number of output classes
+            dropout_rate (float): Dropout probability
+        """
+        super(BasicDNN, self).__init__()
+        
+        self.input_size = input_size
+        self.hidden_sizes = hidden_sizes
+        self.num_classes = num_classes
+        self.dropout_rate = dropout_rate
+        
+        # Build layers
+        layers = []
+        prev_size = input_size
+        
+        # Hidden layers
+        for hidden_size in hidden_sizes:
+            layers.append(nn.Linear(prev_size, hidden_size))
+            layers.append(nn.BatchNorm1d(hidden_size))
+            layers.append(nn.ReLU())
+            layers.append(nn.Dropout(dropout_rate))
+            prev_size = hidden_size
+        
+        # Output layer
+        layers.append(nn.Linear(prev_size, num_classes))
+        
+        self.network = nn.Sequential(*layers)
+        
+        # Initialize weights
+        self._initialize_weights()
+    
+    def _initialize_weights(self):
+        """Initialize network weights using Xavier initialization"""
+        for module in self.modules():
+            if isinstance(module, nn.Linear):
+                nn.init.xavier_uniform_(module.weight)
+                nn.init.constant_(module.bias, 0)
+    
+    def forward(self, x):
+        """Forward pass through the network"""
+        # Flatten input if needed
+        x = x.view(x.size(0), -1)
+        return self.network(x)
+    
+    def get_model_info(self):
+        """Get information about the model architecture"""
+        total_params = sum(p.numel() for p in self.parameters())
+        trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        
+        return {
+            'model_type': 'Basic DNN',
+            'input_size': self.input_size,
+            'hidden_sizes': self.hidden_sizes,
+            'num_classes': self.num_classes,
+            'total_parameters': total_params,
+            'trainable_parameters': trainable_params,
+            'dropout_rate': self.dropout_rate
+        }
+
+print("BasicDNN class defined successfully!")
