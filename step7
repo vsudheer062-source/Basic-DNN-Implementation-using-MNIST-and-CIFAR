@@ -1,0 +1,115 @@
+# Cell 7: Model Evaluator
+class ModelEvaluator:
+    """
+    Comprehensive model evaluation utilities
+    """
+    
+    def __init__(self, model, device):
+        self.model = model
+        self.device = device
+    
+    def evaluate_model(self, test_loader, class_names=None):
+        """
+        Comprehensive model evaluation
+        
+        Args:
+            test_loader: DataLoader for test data
+            class_names: List of class names for better reporting
+        
+        Returns:
+            dict: Evaluation metrics
+        """
+        self.model.eval()
+        
+        all_predictions = []
+        all_targets = []
+        total_loss = 0
+        correct = 0
+        total = 0
+        
+        criterion = torch.nn.CrossEntropyLoss()
+        
+        with torch.no_grad():
+            for data, target in tqdm(test_loader, desc="Evaluating"):
+                data, target = data.to(self.device), target.to(self.device)
+                
+                output = self.model(data)
+                loss = criterion(output, target)
+                
+                total_loss += loss.item()
+                
+                # Get predictions
+                _, predicted = torch.max(output.data, 1)
+                total += target.size(0)
+                correct += (predicted == target).sum().item()
+                
+                # Store for detailed analysis
+                all_predictions.extend(predicted.cpu().numpy())
+                all_targets.extend(target.cpu().numpy())
+        
+        # Calculate metrics
+        accuracy = 100 * correct / total
+        avg_loss = total_loss / len(test_loader)
+        
+        # Classification report
+        if class_names is None:
+            class_names = [str(i) for i in range(len(set(all_targets)))]
+        
+        clf_report = classification_report(
+            all_targets, 
+            all_predictions, 
+            target_names=class_names,
+            output_dict=True
+        )
+        
+        return {
+            'accuracy': accuracy,
+            'loss': avg_loss,
+            'predictions': all_predictions,
+            'targets': all_targets,
+            'classification_report': clf_report
+        }
+    
+    def plot_confusion_matrix(self, targets, predictions, class_names, title='Confusion Matrix'):
+        """Plot confusion matrix"""
+        cm = confusion_matrix(targets, predictions)
+        
+        plt.figure(figsize=(12, 10))
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                   xticklabels=class_names, yticklabels=class_names)
+        plt.title(title, fontsize=16)
+        plt.xlabel('Predicted', fontsize=14)
+        plt.ylabel('Actual', fontsize=14)
+        plt.tight_layout()
+        plt.show()
+    
+    def plot_training_history(self, train_losses, train_accuracies, val_losses=None, val_accuracies=None):
+        """Plot training history"""
+        epochs = range(1, len(train_losses) + 1)
+        
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
+        
+        # Plot losses
+        ax1.plot(epochs, train_losses, 'b-', label='Training Loss', linewidth=2)
+        if val_losses:
+            ax1.plot(epochs, val_losses, 'r-', label='Validation Loss', linewidth=2)
+        ax1.set_title('Model Loss', fontsize=14)
+        ax1.set_xlabel('Epoch', fontsize=12)
+        ax1.set_ylabel('Loss', fontsize=12)
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+        
+        # Plot accuracies
+        ax2.plot(epochs, train_accuracies, 'b-', label='Training Accuracy', linewidth=2)
+        if val_accuracies:
+            ax2.plot(epochs, val_accuracies, 'r-', label='Validation Accuracy', linewidth=2)
+        ax2.set_title('Model Accuracy', fontsize=14)
+        ax2.set_xlabel('Epoch', fontsize=12)
+        ax2.set_ylabel('Accuracy (%)', fontsize=12)
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        plt.show()
+
+print("ModelEvaluator class defined successfully!")
