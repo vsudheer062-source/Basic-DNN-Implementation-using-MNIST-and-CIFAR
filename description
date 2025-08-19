@@ -1,3 +1,7 @@
 follow all the steps 
   save the results in your system
   after completion of all the steps you will see all the results
+
+
+# Go to Runtime > Change runtime type > Hardware accelerator > GPU
+# Then click Save
